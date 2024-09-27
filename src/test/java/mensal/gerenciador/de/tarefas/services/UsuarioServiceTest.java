@@ -2,23 +2,20 @@ package mensal.gerenciador.de.tarefas.services;
 
 import mensal.gerenciador.de.tarefas.models.Usuario;
 import mensal.gerenciador.de.tarefas.repositories.UsuarioRepository;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.EmptyResultDataAccessException;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
-
-@SpringBootTest
 public class UsuarioServiceTest {
 
     @Mock
@@ -27,76 +24,87 @@ public class UsuarioServiceTest {
     @InjectMocks
     private UsuarioService usuarioService;
 
-    private Usuario usuario;
-
-    @BeforeEach
-    void configurar() {
+    public UsuarioServiceTest() {
         MockitoAnnotations.openMocks(this);
-        usuario = new Usuario("Maria", "maria@example.com");
-    }
-
-    @AfterEach
-    void limpar() {
-        usuario = null;
     }
 
     @Test
-    void deveEncontrarTodosUsuarios() {
-        when(usuarioRepository.findAll()).thenReturn(List.of(usuario));
+    @DisplayName("Deve encontrar todos os usuários")
+    public void deveEncontrarTodosUsuarios() {
+        
+        Usuario usuario = new Usuario("Maria", "maria@example.com");
+        when(usuarioRepository.findAll()).thenReturn(Arrays.asList(usuario));
 
+        
         List<Usuario> usuarios = usuarioService.encontrarTodos();
 
-        assertFalse(usuarios.isEmpty());
+        
+        assertNotNull(usuarios);
         assertEquals(1, usuarios.size());
-        verify(usuarioRepository, times(1)).findAll();
+        assertEquals("Maria", usuarios.get(0).getNome());
     }
 
     @Test
-    void deveEncontrarUsuarioPorId() {
-        when(usuarioRepository.findById(anyLong())).thenReturn(Optional.of(usuario));
+    @DisplayName("Deve salvar um usuário")
+    public void deveSalvarUsuario() {
+       
+        Usuario usuario = new Usuario("João", "joao@example.com");
+        when(usuarioRepository.findByEmail("joao@example.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
 
-        Usuario usuarioEncontrado = usuarioService.encontrarPorId(1L);
+        
+        Usuario salvo = usuarioService.salvar(usuario);
 
-        assertNotNull(usuarioEncontrado);
-        assertEquals("Maria", usuarioEncontrado.getNome());
-        verify(usuarioRepository, times(1)).findById(1L);
-    }
-
-    @Test
-    void deveRetornarNuloQuandoUsuarioNaoEncontrado() {
-        when(usuarioRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-        Usuario usuarioEncontrado = usuarioService.encontrarPorId(1L);
-
-        assertNull(usuarioEncontrado);
-        verify(usuarioRepository, times(1)).findById(1L);
-    }
-
-    @Test
-    void deveSalvarUsuario() {
-        when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
-
-        Usuario usuarioSalvo = usuarioService.salvar(usuario);
-
-        assertNotNull(usuarioSalvo);
-        assertEquals("Maria", usuarioSalvo.getNome());
+        
+        assertNotNull(salvo);
+        assertEquals("João", salvo.getNome());
         verify(usuarioRepository, times(1)).save(usuario);
     }
 
     @Test
-    void deveLancarExcecaoQuandoEmailJaCadastrado() {
-        when(usuarioRepository.findByEmail(any(String.class))).thenReturn(Optional.of(usuario));
+    @DisplayName("Deve lançar exceção ao salvar usuário com e-mail já cadastrado")
+    public void deveLancarExcecaoEmailJaCadastrado() {
+        
+        Usuario usuario = new Usuario("Carlos", "carlos@example.com");
+        when(usuarioRepository.findByEmail("carlos@example.com")).thenReturn(Optional.of(usuario));
 
-        assertThrows(IllegalArgumentException.class, () -> usuarioService.salvar(usuario));
-        verify(usuarioRepository, never()).save(any(Usuario.class));
+        
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            usuarioService.salvar(usuario);
+        });
+
+        assertEquals("E-mail já cadastrado. Tente com outro e-mail.", exception.getMessage());
+        verify(usuarioRepository, never()).save(usuario);
     }
 
     @Test
-    void deveDeletarUsuarioPorId() {
-        doNothing().when(usuarioRepository).deleteById(anyLong());
+    @DisplayName("Deve deletar um usuário")
+    public void deveDeletarUsuario() {
+        
+        Long usuarioId = 1L;
+        doNothing().when(usuarioRepository).deleteById(usuarioId);
 
-        usuarioService.deletarPorId(1L);
+       
+        usuarioService.deletarPorId(usuarioId);
 
-        verify(usuarioRepository, times(1)).deleteById(1L);
+        
+        verify(usuarioRepository, times(1)).deleteById(usuarioId);
     }
+    
+    
+    @Test
+    @DisplayName("Deve lançar exceção ao deletar usuário inexistente")
+    public void deveLancarExcecaoAoDeletarUsuarioInexistente() {
+       
+        Long usuarioId = 999L;
+        doThrow(new EmptyResultDataAccessException(1)).when(usuarioRepository).deleteById(usuarioId);
+
+        
+        assertThrows(EmptyResultDataAccessException.class, () -> {
+            usuarioService.deletarPorId(usuarioId);
+        });
+
+        verify(usuarioRepository, times(1)).deleteById(usuarioId);
+    }
+
 }

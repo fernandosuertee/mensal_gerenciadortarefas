@@ -1,134 +1,148 @@
 package mensal.gerenciador.de.tarefas.services;
 
-import mensal.gerenciador.de.tarefas.models.Tarefa;
-import mensal.gerenciador.de.tarefas.models.Usuario;
+import mensal.gerenciador.de.tarefas.models.*;
 import mensal.gerenciador.de.tarefas.repositories.TarefaRepository;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import mensal.gerenciador.de.tarefas.repositories.UsuarioRepository;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.EmptyResultDataAccessException;
+
+// Importações estáticas para facilitar a leitura
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
-@SpringBootTest
 public class TarefaServiceTest {
 
-	
     @Mock
     private TarefaRepository tarefaRepository;
+
+    @Mock
+    private UsuarioRepository usuarioRepository;
 
     @InjectMocks
     private TarefaService tarefaService;
 
-    private Usuario usuario;
-    
-    private Tarefa tarefa;
-
-    
-    @BeforeEach
-    void configurar() {
-    	
+    public TarefaServiceTest() {
         MockitoAnnotations.openMocks(this);
-        
-        usuario = new Usuario("João", "joao@example.com");
-        
-        usuario.setId(1L); 
-        
-        tarefa = new Tarefa("Estudar", "Estudar para a prova", LocalDate.now().plusDays(1), usuario);
-    }
-
-    @AfterEach
-    void limpar() {
-    	
-        usuario = null;
-        
-        tarefa = null;
     }
 
     @Test
-    void deveEncontrarTodasTarefas() {
-        when(tarefaRepository.findAll()).thenReturn(List.of(tarefa));
+    @DisplayName("Deve encontrar todas as tarefas")
+    public void deveEncontrarTodasTarefas() {
+   
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        Tarefa tarefa = new Tarefa("Título", "Descrição", LocalDate.now().plusDays(5), usuario, Prioridade.MEDIA, Status.NAO_INICIADA);
+        when(tarefaRepository.findAll()).thenReturn(Arrays.asList(tarefa));
+
 
         List<Tarefa> tarefas = tarefaService.encontrarTodas();
 
-        assertFalse(tarefas.isEmpty());
+
+        assertNotNull(tarefas);
         assertEquals(1, tarefas.size());
-        verify(tarefaRepository, times(1)).findAll();
+        assertEquals("Título", tarefas.get(0).getTitulo());
     }
 
     @Test
-    void deveEncontrarTarefaPorId() {
-    	
-        when(tarefaRepository.findById(any(Long.class))).thenReturn(Optional.of(tarefa));
+    @DisplayName("Deve salvar uma tarefa")
+    public void deveSalvarTarefa() {
 
-        Tarefa tarefaEncontrada = tarefaService.encontrarPorId(1L);
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        Tarefa tarefa = new Tarefa("Teste", "Descrição teste", LocalDate.now().plusDays(5), usuario, Prioridade.ALTA, Status.NAO_INICIADA);
+        when(tarefaRepository.save(tarefa)).thenReturn(tarefa);
 
-        assertNotNull(tarefaEncontrada);
-        assertEquals("Estudar", tarefaEncontrada.getTitulo());
-        verify(tarefaRepository, times(1)).findById(1L);
-    }
+        Tarefa salva = tarefaService.salvar(tarefa);
 
-    @Test
-    void deveRetornarNuloQuandoTarefaNaoEncontrada() {
-    	
-        when(tarefaRepository.findById(any(Long.class))).thenReturn(Optional.empty());
 
-        Tarefa tarefaEncontrada = tarefaService.encontrarPorId(1L);
-
-        assertNull(tarefaEncontrada);
-        
-        verify(tarefaRepository, times(1)).findById(1L);
-    }
-
-    @Test
-    void deveSalvarTarefa() {
-    	
-        when(tarefaRepository.save(any(Tarefa.class))).thenReturn(tarefa);
-
-        Tarefa tarefaSalva = tarefaService.salvar(tarefa);
-
-        assertNotNull(tarefaSalva);
-        
-        assertEquals("Estudar", tarefaSalva.getTitulo());
-        
+        assertNotNull(salva);
+        assertEquals("Teste", salva.getTitulo());
         verify(tarefaRepository, times(1)).save(tarefa);
     }
 
     @Test
-    void deveDeletarTarefaPorId() {
-    	
-        doNothing().when(tarefaRepository).deleteById(any(Long.class));
+    @DisplayName("Deve encontrar tarefa por ID")
+    public void deveEncontrarTarefaPorId() {
 
-        tarefaService.deletarPorId(1L);
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        Tarefa tarefa = new Tarefa("Teste", "Descrição teste", LocalDate.now().plusDays(5), usuario, Prioridade.ALTA, Status.NAO_INICIADA);
+        tarefa.setId(1L);
+        when(tarefaRepository.findById(1L)).thenReturn(Optional.of(tarefa));
 
-        verify(tarefaRepository, times(1)).deleteById(1L);
+     
+        Tarefa encontrada = tarefaService.encontrarPorId(1L);
+
+
+        assertNotNull(encontrada);
+        assertEquals(1L, encontrada.getId());
     }
 
     @Test
-    void deveEncontrarTarefasPorUsuarioId() {
-        // Configura o mock para retornar uma lista com a tarefa quando o ID for o esperado
-        when(tarefaRepository.findByUsuarioId(usuario.getId())).thenReturn(List.of(tarefa));
+    @DisplayName("Deve deletar uma tarefa")
+    public void deveDeletarTarefa() {
+  
+        Long tarefaId = 1L;
+        doNothing().when(tarefaRepository).deleteById(tarefaId);
 
-        // Chama o método a ser testado
-        List<Tarefa> tarefas = tarefaService.encontrarPorUsuarioId(usuario.getId());
+      
+        tarefaService.deletarPorId(tarefaId);
 
-        // Verificações adicionais de depuração
-        System.out.println("ID do usuário: " + usuario.getId());
-        System.out.println("Tarefas retornadas: " + tarefas.size());
 
-        // Verifica se a lista de tarefas não está vazia
-        assertFalse(tarefas.isEmpty(), "A lista de tarefas deveria conter elementos.");
-        assertEquals(1, tarefas.size(), "A lista de tarefas deveria conter 1 tarefa.");
-        verify(tarefaRepository, times(1)).findByUsuarioId(usuario.getId());
+        verify(tarefaRepository, times(1)).deleteById(tarefaId);
+    }
+
+    @Test
+    @DisplayName("Deve atualizar uma tarefa")
+    public void deveAtualizarTarefa() {
+        
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        Tarefa tarefaExistente = new Tarefa("Tarefa Antiga", "Descrição antiga", LocalDate.now().plusDays(5), usuario, Prioridade.MEDIA, Status.NAO_INICIADA);
+        Tarefa novosDados = new Tarefa("Tarefa Atualizada", "Descrição atualizada", LocalDate.now().plusDays(10), usuario, Prioridade.ALTA, Status.EM_ANDAMENTO);
+
+        when(tarefaRepository.save(tarefaExistente)).thenReturn(tarefaExistente);
+
+      
+        Tarefa atualizada = tarefaService.atualizar(tarefaExistente, novosDados);
+
+   
+        assertEquals("Tarefa Atualizada", atualizada.getTitulo());
+        verify(tarefaRepository, times(1)).save(tarefaExistente);
     }
     
+    
+    @Test
+    @DisplayName("Deve lançar exceção ao deletar tarefa inexistente")
+    public void deveLancarExcecaoAoDeletarTarefaInexistente() {
+       
+        Long tarefaId = 999L;
+        doThrow(new EmptyResultDataAccessException(1)).when(tarefaRepository).deleteById(tarefaId);
+
+        
+        assertThrows(EmptyResultDataAccessException.class, () -> {
+            tarefaService.deletarPorId(tarefaId);
+        });
+
+        verify(tarefaRepository, times(1)).deleteById(tarefaId);
+    } 
+    
+    
+    @Test
+    @DisplayName("Deve lançar exceção ao atualizar tarefa com dados nulos")
+    public void deveLancarExcecaoAoAtualizarTarefaComDadosNulos() {
+        
+        Tarefa tarefaExistente = new Tarefa();
+        Tarefa novosDados = null;
+
+        
+        assertThrows(NullPointerException.class, () -> {
+            tarefaService.atualizar(tarefaExistente, novosDados);
+        });
+    }
 }

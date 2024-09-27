@@ -1,148 +1,148 @@
 package mensal.gerenciador.de.tarefas.controllers;
 
-import mensal.gerenciador.de.tarefas.models.Usuario;
-import mensal.gerenciador.de.tarefas.services.UsuarioService;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.util.Collections;
-import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import mensal.gerenciador.de.tarefas.models.Usuario;
+import mensal.gerenciador.de.tarefas.repositories.UsuarioRepository;
 
 
 @SpringBootTest
 public class UsuarioControllerTest {
-
 	
+
+    private MockMvc mockMvc;
+
     @Autowired
-    private WebApplicationContext contextoAplicacao; 
+    private UsuarioRepository usuarioRepository;
 
-    private MockMvc simuladorMvc;
-
+    @Autowired
+    private WebApplicationContext webApplicationContext;
     
-    @MockBean
-    private UsuarioService usuarioServico; 
+    @Autowired
+    private ObjectMapper objectMapper;
 
-    
     @BeforeEach
-    void configurar() {
-        simuladorMvc = MockMvcBuilders.webAppContextSetup(contextoAplicacao).build(); // Configuração manual do MockMvc
+    public void setUp() {
+        
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
     }
 
-    
-    @Test
-    void deveObterTodosUsuariosComSucesso() throws Exception {
-        Usuario usuario = new Usuario("João", "joao@example.com");
-        Mockito.when(usuarioServico.encontrarTodos()).thenReturn(List.of(usuario));
+    @AfterEach
+    public void tearDown() {
+        usuarioRepository.deleteAll();
+    }
 
-        simuladorMvc.perform(get("/api/usuario"))
+    @Test
+    @DisplayName("Deve obter todos os usuários")
+    public void deveObterTodosUsuarios() throws Exception {
+        
+        Usuario usuario = new Usuario("João", "joao@gmail.com");
+        usuarioRepository.save(usuario);
+
+        
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/usuario")
+                .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(content().json("[{'nome':'João','email':'joao@example.com'}]"));
+                .andExpect(jsonPath("$[0].nome").value("João"));
     }
 
-    
     @Test
-    void deveRetornarNotFoundQuandoNaoHouverUsuarios() throws Exception {
-        Mockito.when(usuarioServico.encontrarTodos()).thenReturn(Collections.emptyList());
+    @DisplayName("Deve criar um novo usuário")
+    public void deveCriarNovoUsuario() throws Exception {
+        
+        Usuario usuario = new Usuario("Maria", "maria@gmail.com");
 
-        simuladorMvc.perform(get("/api/usuario"))
-                .andExpect(status().isNotFound())
-                .andExpect(content().string("Nenhum usuário cadastrado ou encontrado."));
-    }
-
-    
-    @Test
-    void deveObterUsuarioPorIdComSucesso() throws Exception {
-        Usuario usuario = new Usuario("João", "joao@example.com");
-        Mockito.when(usuarioServico.encontrarPorId(anyLong())).thenReturn(usuario);
-
-        simuladorMvc.perform(get("/api/usuario/1"))
-                .andExpect(status().isOk())
-                .andExpect(content().json("{'nome':'João','email':'joao@example.com'}"));
-    }
-
-    
-    @Test
-    void deveRetornarNotFoundQuandoUsuarioNaoExistir() throws Exception {
-        Mockito.when(usuarioServico.encontrarPorId(anyLong())).thenReturn(null);
-
-        simuladorMvc.perform(get("/api/usuario/1"))
-                .andExpect(status().isNotFound())
-                .andExpect(content().string("Usuário não encontrado ou cadastrado."));
-    }
-
-    
-    @Test
-    void deveCriarUsuarioComSucesso() throws Exception {
-        Usuario usuario = new Usuario("João", "joao@example.com");
-        Mockito.when(usuarioServico.salvar(any(Usuario.class))).thenReturn(usuario);
-
-        simuladorMvc.perform(post("/api/usuario")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\"João\",\"email\":\"joao@example.com\"}"))
+        
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/usuario")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(usuario)))
                 .andExpect(status().isCreated())
-                .andExpect(content().json("{'nome':'João','email':'joao@example.com'}"));
+                .andExpect(jsonPath("$.nome").value("Maria"));
     }
 
-    
     @Test
-    void deveAtualizarUsuarioComSucesso() throws Exception {
-        Usuario usuarioExistente = new Usuario("João", "joao@example.com");
-        Usuario usuarioAtualizado = new Usuario("João Silva", "joao.silva@example.com");
+    @DisplayName("Deve atualizar um usuário existente")
+    public void deveAtualizarUsuario() throws Exception {
+        
+        Usuario usuario = new Usuario("Carlos", "carlos@example.com");
+        usuarioRepository.save(usuario);
 
-        Mockito.when(usuarioServico.encontrarPorId(anyLong())).thenReturn(usuarioExistente);
-        Mockito.when(usuarioServico.salvar(any(Usuario.class))).thenReturn(usuarioAtualizado);
+        Usuario novosDados = new Usuario("Carlos Silva", "carlos.silva@gmail.com");
 
-        simuladorMvc.perform(put("/api/usuario/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\"João Silva\",\"email\":\"joao.silva@example.com\"}"))
+        
+        mockMvc.perform(MockMvcRequestBuilders.put("/api/usuario/" + usuario.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(novosDados)))
                 .andExpect(status().isOk())
-                .andExpect(content().json("{'nome':'João Silva','email':'joao.silva@example.com'}"));
+                .andExpect(jsonPath("$.nome").value("Carlos Silva"));
     }
 
-    
     @Test
-    void deveRetornarNotFoundQuandoTentarAtualizarUsuarioInexistente() throws Exception {
-        Mockito.when(usuarioServico.encontrarPorId(anyLong())).thenReturn(null);
+    @DisplayName("Deve deletar um usuário existente")
+    public void deveDeletarUsuario() throws Exception {
+        
+        Usuario usuario = new Usuario("Ana", "ana@gmail.com");
+        usuarioRepository.save(usuario);
 
-        simuladorMvc.perform(put("/api/usuario/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\"João Silva\",\"email\":\"joao.silva@example.com\"}"))
-                .andExpect(status().isNotFound())
-                .andExpect(content().string("Usuário não encontrado."));
-    }
-
-    
-    @Test
-    void deveDeletarUsuarioComSucesso() throws Exception {
-        Usuario usuario = new Usuario("João", "joao@example.com");
-        Mockito.when(usuarioServico.encontrarPorId(anyLong())).thenReturn(usuario);
-        Mockito.doNothing().when(usuarioServico).deletarPorId(anyLong());
-
-        simuladorMvc.perform(delete("/api/usuario/1"))
+        
+        mockMvc.perform(MockMvcRequestBuilders.delete("/api/usuario/" + usuario.getId()))
                 .andExpect(status().isOk())
                 .andExpect(content().string("Usuário deletado com sucesso."));
     }
-
+    
     
     @Test
-    void deveRetornarNotFoundAoTentarDeletarUsuarioInexistente() throws Exception {
-        Mockito.when(usuarioServico.encontrarPorId(anyLong())).thenReturn(null);
+    @DisplayName("Deve retornar erro ao atualizar usuário com dados idênticos")
+    public void deveRetornarErroAoAtualizarUsuarioComDadosIdenticos() throws Exception {
+         
+        Usuario usuario = new Usuario("Carlos", "carlos@example.com");
+        usuarioRepository.save(usuario);
 
-        simuladorMvc.perform(delete("/api/usuario/1"))
-                .andExpect(status().isNotFound())
-                .andExpect(content().string("Usuário não encontrado ou invalido."));
+        Usuario detalhesUsuario = new Usuario("Carlos", "carlos@example.com");
+
+        
+        mockMvc.perform(put("/api/usuario/" + usuario.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(detalhesUsuario)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Os dados são idênticos aos já cadastrados."));
     }
+    
+    
+    @Test
+    @DisplayName("Deve retornar 404 ao buscar usuário com ID inexistente")
+    public void deveRetornar404AoBuscarUsuarioInexistente() throws Exception {
+        
+        mockMvc.perform(get("/api/usuario/9999"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Usuário não encontrado ou cadastrado."));
+    } 
+    
+    
+    
+    
+
+
+  
+
+
 }

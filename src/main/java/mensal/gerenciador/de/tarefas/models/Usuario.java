@@ -3,7 +3,7 @@ package mensal.gerenciador.de.tarefas.models;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -20,21 +20,24 @@ import jakarta.validation.constraints.Pattern;
 @Table
 public class Usuario {
 	
+	
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    
     @NotBlank(message = "Nome é obrigatório")
     private String nome;
 
+    
     @NotBlank(message = "Email é obrigatório")
     @Column(nullable = false, unique= true )
     @Pattern(regexp = "^[^@]+@[^@]+\\.[^@]+$", message = "Formato de e-mail inválido")
     private String email;
-
+    
     
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties("usuario")
+    @JsonIgnore()
     private Set<Tarefa> tarefas = new HashSet<>();
 
 

@@ -1,63 +1,76 @@
 package mensal.gerenciador.de.tarefas.models;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.Set;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+
+import java.util.Set;
+
+import jakarta.validation.ConstraintViolation;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 
 @SpringBootTest
 public class UsuarioTest {
 
-	
-    private Validator validador; // Renomeado para português
+    private final Validator validator;
 
-   
-    @BeforeEach
-    void configurar() {
-        
-        ValidatorFactory fabrica = Validation.buildDefaultValidatorFactory();
-        validador = fabrica.getValidator();
+    public UsuarioTest() {
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        validator = factory.getValidator();
     }
 
-    
-    @AfterEach
-    void limpar() {
-        
-        validador = null;
-    }
-
-    
     @Test
-    void deveValidarUsuarioCorretamente() {
+    @DisplayName("Deve validar campos obrigatórios do Usuário")
+    public void deveValidarCamposObrigatorios() {
         
-        Usuario usuario = new Usuario("João", "joao@example.com");
+        Usuario usuario = new Usuario();
 
         
-        Set<ConstraintViolation<Usuario>> violacoes = validador.validate(usuario);
-        assertTrue(violacoes.isEmpty());
-    }
+        Set<ConstraintViolation<Usuario>> violacoes = validator.validate(usuario);
 
-    
-    @Test
-    void deveFalharQuandoEmailForInvalido() {
-        
-        Usuario usuario = new Usuario("João", "email-invalido");
-
-        
-        Set<ConstraintViolation<Usuario>> violacoes = validador.validate(usuario);
+       
         assertFalse(violacoes.isEmpty());
-        assertEquals("Formato de e-mail inválido", violacoes.iterator().next().getMessage());
+        assertEquals(2, violacoes.size());
+
+        for (ConstraintViolation<Usuario> violacao : violacoes) {
+            System.out.println(violacao.getPropertyPath() + ": " + violacao.getMessage());
+        }
+    }
+
+    
+    @Test
+    @DisplayName("Deve validar formato de e-mail inválido")
+    public void deveValidarFormatoDeEmailInvalido() {
+        
+        Usuario usuario = new Usuario("João", "email_invalido");
+
+        
+        Set<ConstraintViolation<Usuario>> violacoes = validator.validate(usuario);
+
+     
+        assertFalse(violacoes.isEmpty());
+        assertEquals(1, violacoes.size());
+
+        ConstraintViolation<Usuario> violacao = violacoes.iterator().next();
+        assertEquals("Formato de e-mail inválido", violacao.getMessage());
+    }
+
+    @Test
+    @DisplayName("Deve criar um usuário válido")
+    public void deveCriarUsuarioValido() {
+    
+        Usuario usuario = new Usuario("Maria", "maria@example.com");
+
+       
+        Set<ConstraintViolation<Usuario>> violacoes = validator.validate(usuario);
+
+     
+        assertTrue(violacoes.isEmpty());
     }
 }

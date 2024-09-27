@@ -1,147 +1,236 @@
 package mensal.gerenciador.de.tarefas.controllers;
 
-import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import mensal.gerenciador.de.tarefas.models.Prioridade;
+import mensal.gerenciador.de.tarefas.models.Status;
 import mensal.gerenciador.de.tarefas.models.Tarefa;
-import mensal.gerenciador.de.tarefas.services.TarefaService;
+import mensal.gerenciador.de.tarefas.models.Usuario;
+import mensal.gerenciador.de.tarefas.repositories.TarefaRepository;
+import mensal.gerenciador.de.tarefas.repositories.UsuarioRepository;
 
-class TarefaControllerTest {
+
+@SpringBootTest
+public class TarefaControllerTest {
+
 
     private MockMvc mockMvc;
+    
+    @Autowired
+    private WebApplicationContext webApplicationContext;
 
-    @Mock
-    private TarefaService tarefaService;
+    @Autowired
+    private TarefaRepository tarefaRepository;
 
-    @InjectMocks
-    private TarefaController tarefaController;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        mockMvc = MockMvcBuilders.standaloneSetup(tarefaController).build();
+    public void setUp() {
+        
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        tarefaRepository.deleteAll();
+        usuarioRepository.deleteAll();
     }
 
     @Test
-    void testObterTodasTarefas() throws Exception {
-        when(tarefaService.encontrarTodas()).thenReturn(List.of(new Tarefa()));
+    @DisplayName("Deve obter todas as tarefas")
+    public void deveObterTodasAsTarefas() throws Exception {
+        
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        usuarioRepository.save(usuario);
 
+        Tarefa tarefa = new Tarefa("Título", "Descrição", LocalDate.now().plusDays(5), usuario, Prioridade.MEDIA, Status.NAO_INICIADA);
+        tarefaRepository.save(tarefa);
+
+       
         mockMvc.perform(get("/api/tarefas"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+                .andExpect(jsonPath("$[0].titulo").value("Título"));
     }
 
     @Test
-    void testObterTodasTarefasVazia() throws Exception {
-        when(tarefaService.encontrarTodas()).thenReturn(Collections.emptyList());
+    @DisplayName("Deve criar uma nova tarefa")
+    public void deveCriarNovaTarefa() throws Exception {
+        
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        usuarioRepository.save(usuario);
 
-        mockMvc.perform(get("/api/tarefas"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Não há tarefas cadastradas no momento."));
-    }
+        Tarefa tarefa = new Tarefa("Nova Tarefa", "Descrição da nova tarefa", LocalDate.now().plusDays(5), usuario, Prioridade.ALTA, Status.NAO_INICIADA);
 
-    @Test
-    void testObterTarefaPorId() throws Exception {
-        Tarefa tarefa = new Tarefa();
-        tarefa.setId(1L);
-        when(tarefaService.encontrarPorId(anyLong())).thenReturn(tarefa);
-
-        mockMvc.perform(get("/api/tarefas/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L));
-    }
-
-    @Test
-    void testObterTarefaPorIdNaoEncontrada() throws Exception {
-        when(tarefaService.encontrarPorId(anyLong())).thenReturn(null);
-
-        mockMvc.perform(get("/api/tarefas/1"))
-                .andExpect(status().isNotFound())
-                .andExpect(content().string("Tarefa com o ID 1 não encontrada."));
-    }
-
-    void testCriarTarefa() throws Exception {
-        // Ajuste o objeto Tarefa de acordo com os campos obrigatórios do modelo
-        Tarefa tarefa = new Tarefa();
-        tarefa.setId(1L);
-        tarefa.setTitulo("Nova Tarefa");
-        tarefa.setDescricao("Descrição da tarefa");
-        tarefa.setDataVencimento(LocalDate.now().plusDays(7)); // Certifique-se de definir a data se for obrigatória
-
-        when(tarefaService.salvar(any(Tarefa.class))).thenReturn(tarefa);
-
-        // Inclua todos os campos obrigatórios na requisição
+       
         mockMvc.perform(post("/api/tarefas")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"titulo\":\"Nova Tarefa\", \"descricao\":\"Descrição da tarefa\", \"dataVencimento\":\"2024-09-25\"}"))
+                .content(objectMapper.writeValueAsString(tarefa)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
                 .andExpect(jsonPath("$.titulo").value("Nova Tarefa"));
     }
 
     @Test
-    void testAtualizarTarefa() throws Exception {
-        // Cria uma tarefa mockada existente com os dados obrigatórios preenchidos
-        Tarefa tarefaExistente = new Tarefa();
-        tarefaExistente.setId(1L);
-        tarefaExistente.setTitulo("Tarefa Existente");
-        tarefaExistente.setDescricao("Descrição existente");
-        tarefaExistente.setDataVencimento(LocalDate.now().plusDays(5)); // Ajuste conforme o campo obrigatório
+    @DisplayName("Deve retornar erro ao criar tarefa sem usuário")
+    public void deveRetornarErroAoCriarTarefaSemUsuario() throws Exception {
+        
+        Usuario usuario = new Usuario(); 
+        Tarefa tarefa = new Tarefa("Nova Tarefa", "Descrição da nova tarefa", LocalDate.now().plusDays(5), usuario, Prioridade.ALTA, Status.NAO_INICIADA);
 
-        // Cria a tarefa atualizada com os dados a serem enviados no teste
-        Tarefa tarefaAtualizada = new Tarefa();
-        tarefaAtualizada.setId(1L);
-        tarefaAtualizada.setTitulo("Tarefa Atualizada");
-        tarefaAtualizada.setDescricao("Descrição atualizada");
-        tarefaAtualizada.setDataVencimento(LocalDate.now().plusDays(10));
-
-        // Simula o comportamento do serviço
-        when(tarefaService.encontrarPorId(anyLong())).thenReturn(tarefaExistente);
-        when(tarefaService.salvar(any(Tarefa.class))).thenReturn(tarefaAtualizada);
-
-        // Realiza a requisição de atualização
-        mockMvc.perform(put("/api/tarefas/1")
+        
+        mockMvc.perform(post("/api/tarefas")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"titulo\":\"Tarefa Atualizada\", \"descricao\":\"Descrição atualizada\", \"dataVencimento\":\"2024-09-27\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.titulo").value("Tarefa Atualizada"))
-                .andExpect(jsonPath("$.descricao").value("Descrição atualizada"));
+                .content(objectMapper.writeValueAsString(tarefa)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Erro: Usuário não fornecido."));
     }
 
     @Test
-    void testDeletarTarefa() throws Exception {
-        Tarefa tarefa = new Tarefa();
-        tarefa.setId(1L);
+    @DisplayName("Deve atualizar uma tarefa existente")
+    public void deveAtualizarTarefa() throws Exception {
+        
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        usuarioRepository.save(usuario);
 
-        when(tarefaService.encontrarPorId(anyLong())).thenReturn(tarefa);
+        Tarefa tarefa = new Tarefa("Tarefa Antiga", "Descrição antiga", LocalDate.now().plusDays(5), usuario, Prioridade.MEDIA, Status.NAO_INICIADA);
+        tarefaRepository.save(tarefa);
 
-        mockMvc.perform(delete("/api/tarefas/1"))
+        Tarefa novosDados = new Tarefa("Tarefa Atualizada", "Descrição atualizada", LocalDate.now().plusDays(10), usuario, Prioridade.ALTA, Status.EM_ANDAMENTO);
+
+        
+        mockMvc.perform(put("/api/tarefas/" + tarefa.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(novosDados)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.titulo").value("Tarefa Atualizada"));
+    }
+
+    @Test
+    @DisplayName("Deve deletar uma tarefa existente")
+    public void deveDeletarTarefa() throws Exception {
+        
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        usuarioRepository.save(usuario);
+
+        Tarefa tarefa = new Tarefa("Tarefa para deletar", "Descrição", LocalDate.now().plusDays(5), usuario, Prioridade.BAIXA, Status.NAO_INICIADA);
+        tarefaRepository.save(tarefa);
+
+        
+        mockMvc.perform(delete("/api/tarefas/" + tarefa.getId()))
                 .andExpect(status().isOk())
                 .andExpect(content().string("Tarefa deletada com sucesso."));
     }
-
+    
     @Test
-    void testDeletarTarefaNaoEncontrada() throws Exception {
-        when(tarefaService.encontrarPorId(anyLong())).thenReturn(null);
-
-        mockMvc.perform(delete("/api/tarefas/1"))
+    @DisplayName("Deve retornar 404 ao buscar tarefa com ID inexistente")
+    public void deveRetornar404AoBuscarTarefaInexistente() throws Exception {
+        
+        mockMvc.perform(get("/api/tarefas/9999"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Tarefa com o ID 9999 não encontrada."));
+    }
+    
+    @Test
+    @DisplayName("Deve retornar 404 ao deletar tarefa com ID inexistente")
+    public void deveRetornar404AoDeletarTarefaInexistente() throws Exception {
+       
+        mockMvc.perform(delete("/api/tarefas/9999"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string("Tarefa não encontrada ou inválida."));
+    }
+    
+    
+    @Test
+    @DisplayName("Deve retornar 404 ao atualizar tarefa com ID inexistente")
+    public void deveRetornar404AoAtualizarTarefaInexistente() throws Exception {
+    
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        usuarioRepository.save(usuario);
+
+        Tarefa novosDados = new Tarefa("Tarefa Atualizada", "Descrição atualizada", LocalDate.now().plusDays(10), usuario, Prioridade.ALTA, Status.EM_ANDAMENTO);
+
+        
+        mockMvc.perform(put("/api/tarefas/9999")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(novosDados)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Tarefa não encontrada"));
+    } 
+    
+    
+    @Test
+    @DisplayName("Deve retornar relatório vazio quando não há tarefas")
+    public void deveRetornarRelatorioVazioQuandoNaoHaTarefas() throws Exception {
+        
+        mockMvc.perform(get("/api/tarefas/relatorio"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+    
+    
+    @Test
+    @DisplayName("Deve retornar relatório de tarefas por status")
+    public void deveRetornarRelatorioDeTarefasPorStatus() throws Exception {
+        
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        usuarioRepository.save(usuario);
+
+        Tarefa tarefa1 = new Tarefa("Tarefa 1", "Descrição 1", LocalDate.now().plusDays(5), usuario, Prioridade.MEDIA, Status.NAO_INICIADA);
+        Tarefa tarefa2 = new Tarefa("Tarefa 2", "Descrição 2", LocalDate.now().plusDays(5), usuario, Prioridade.ALTA, Status.EM_ANDAMENTO);
+        Tarefa tarefa3 = new Tarefa("Tarefa 3", "Descrição 3", LocalDate.now().plusDays(5), usuario, Prioridade.BAIXA, Status.CONCLUIDA);
+
+        tarefaRepository.save(tarefa1);
+        tarefaRepository.save(tarefa2);
+        tarefaRepository.save(tarefa3);
+
+       
+        mockMvc.perform(get("/api/tarefas/relatorio"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.NAO_INICIADA").isArray())
+                .andExpect(jsonPath("$.EM_ANDAMENTO").isArray())
+                .andExpect(jsonPath("$.CONCLUIDA").isArray());
+    } 
+    
+    
+    @Test
+    @DisplayName("Deve retornar erro ao criar tarefa com data de vencimento no passado")
+    public void deveRetornarErroAoCriarTarefaComDataPassada() throws Exception {
+        
+        Usuario usuario = new Usuario("Teste", "teste@example.com");
+        usuarioRepository.save(usuario);
+
+        Tarefa tarefa = new Tarefa("Nova Tarefa", "Descrição da nova tarefa", LocalDate.now().minusDays(1), usuario, Prioridade.ALTA, Status.NAO_INICIADA);
+
+        
+        mockMvc.perform(post("/api/tarefas")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(tarefa)))
+                .andExpect(status().isBadRequest());
+       
     }
 }

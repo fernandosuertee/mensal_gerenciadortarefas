@@ -1,56 +1,104 @@
 package mensal.gerenciador.de.tarefas.services;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import mensal.gerenciador.de.tarefas.models.Tarefa;
 import mensal.gerenciador.de.tarefas.models.Usuario;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.MailSendException;
+import org.springframework.mail.SimpleMailMessage;
 
-class NotificacaoServiceTest {
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
+
+public class NotificacaoServiceTest {
+
+    @Mock
+    private JavaMailSender mailSender;
+
+    @InjectMocks
     private NotificacaoService notificacaoService;
-    private Tarefa tarefa;
-    private Usuario usuario;
 
-    @BeforeEach
-    void setUp() {
-        notificacaoService = new NotificacaoService();
-        usuario = new Usuario("Test User", "test@example.com");
-        tarefa = new Tarefa("Titulo Teste", "Descricao Teste", LocalDate.now().plusDays(5), usuario);
+    public NotificacaoServiceTest() {
+        MockitoAnnotations.openMocks(this);
     }
 
     @Test
-    void testEnviarNotificacaoComSucesso() {
-        String expectedMessage = String.format("Notificação enviada para %s sobre a tarefa: %s",
-                usuario.getEmail(), tarefa.getTitulo());
+    @DisplayName("Deve enviar e-mail de notificação de criação de tarefa")
+    public void deveEnviarEmailNotificacaoCriacao() {
+        
+        Usuario usuario = new Usuario("João", "fernandosuertemiranda@gmail.com");
+        Tarefa tarefa = new Tarefa();
+        tarefa.setTitulo("Nova Tarefa");
+        tarefa.setUsuario(usuario);
 
-        String result = notificacaoService.enviarNotificacao(tarefa);
-        assertEquals(expectedMessage, result);
+        doNothing().when(mailSender).send(any(SimpleMailMessage.class));
+
+    
+        notificacaoService.enviarNotificacaoCriacao(tarefa);
+
+        
+        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
     }
 
     @Test
-    void testEnviarNotificacaoSemUsuario() {
-        tarefa.setUsuario(null);
+    @DisplayName("Deve enviar e-mail de notificação de tarefa perto de vencer")
+    public void deveEnviarEmailNotificacaoPertoDeVencer() {
+        
+        Usuario usuario = new Usuario("Maria", "fernandosuertemiranda@gmail.com");
+        Tarefa tarefa = new Tarefa();
+        tarefa.setTitulo("Tarefa Perto de Vencer");
+        tarefa.setUsuario(usuario);
 
-        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
-            notificacaoService.enviarNotificacao(tarefa);
+        doNothing().when(mailSender).send(any(SimpleMailMessage.class));
+
+        
+        notificacaoService.enviarNotificacaoPertoDeVencer(tarefa);
+
+        
+        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("Deve enviar e-mail de notificação de tarefa vencida")
+    public void deveEnviarEmailNotificacaoVencida() {
+        
+        Usuario usuario = new Usuario("Carlos", "fernandosuertemiranda@gmail.com");
+        Tarefa tarefa = new Tarefa();
+        tarefa.setTitulo("Tarefa Vencida");
+        tarefa.setUsuario(usuario);
+
+        doNothing().when(mailSender).send(any(SimpleMailMessage.class));
+
+        
+        notificacaoService.enviarNotificacaoVencida(tarefa);
+
+        
+        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+    }
+    
+    @Test
+    @DisplayName("Deve lançar exceção ao falhar no envio de e-mail")
+    public void deveLancarExcecaoAoFalharEnvioEmail() {
+        
+        Usuario usuario = new Usuario("João", "joao@example.com");
+        Tarefa tarefa = new Tarefa();
+        tarefa.setTitulo("Nova Tarefa");
+        tarefa.setUsuario(usuario);
+
+        doThrow(new MailSendException("Falha no envio")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        
+        assertThrows(MailSendException.class, () -> {
+            notificacaoService.enviarNotificacaoCriacao(tarefa);
         });
 
-        assertEquals("Usuário ou e-mail do usuário é inválido", exception.getMessage());
-    }
-
-    @Test
-    void testAnalisarAtividades() {
-    	
-        Tarefa tarefa2 = new Tarefa("Outra Tarefa", "Outra Descricao", LocalDate.now().plusDays(2), usuario);
-        List<Tarefa> tarefas = Arrays.asList(tarefa, tarefa2);
-
-        assertDoesNotThrow(() -> notificacaoService.analisarAtividades(tarefas));
+        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
     }
 }

@@ -1,81 +1,59 @@
 package mensal.gerenciador.de.tarefas.models;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 
 import java.time.LocalDate;
 import java.util.Set;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 
 @SpringBootTest
 public class TarefaTest {
 
-    private Validator validador; 
-    
-    private Usuario usuario; 
-    
-    
-    @BeforeEach
-    void configurar() {
-        
-        ValidatorFactory fabrica = Validation.buildDefaultValidatorFactory();
-        validador = fabrica.getValidator();
+    private final Validator validator;
 
-        
-        usuario = new Usuario("João", "joao@example.com");
+    public TarefaTest() {
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        validator = factory.getValidator();
     }
 
-    
-    @AfterEach
-    void limpar() {
-        
-        validador = null;
-        usuario = null;
-    }
-
-    
     @Test
-    void deveValidarTarefaCorretamente() {
+    @DisplayName("Deve validar campos obrigatórios da Tarefa")
+    public void deveValidarCamposObrigatorios() {
         
-        Tarefa tarefa = new Tarefa("Estudar", "Estudar para a prova", LocalDate.now().plusDays(1), usuario);
+        Tarefa tarefa = new Tarefa();
+        
+        Set<ConstraintViolation<Tarefa>> violacoes = validator.validate(tarefa);
 
         
-        Set<ConstraintViolation<Tarefa>> violacoes = validador.validate(tarefa);
+        assertFalse(violacoes.isEmpty());
+        assertEquals(6, violacoes.size());
+
+        for (ConstraintViolation<Tarefa> violacao : violacoes) {
+            System.out.println(violacao.getPropertyPath() + ": " + violacao.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("Deve criar uma tarefa válida")
+    public void deveCriarTarefaValida() {
+        
+        Usuario usuario = new Usuario("João", "joao@example.com");
+        Tarefa tarefa = new Tarefa("Título", "Descrição", LocalDate.now().plusDays(3), usuario, Prioridade.MEDIA, Status.EM_ANDAMENTO);
+
+     
+        Set<ConstraintViolation<Tarefa>> violacoes = validator.validate(tarefa);
+
+   
         assertTrue(violacoes.isEmpty());
-    }
-
-    
-    @Test
-    void deveFalharQuandoTituloForVazio() {
-        
-        Tarefa tarefa = new Tarefa("", "Estudar para a prova", LocalDate.now().plusDays(1), usuario);
-
-        
-        Set<ConstraintViolation<Tarefa>> violacoes = validador.validate(tarefa);
-        assertFalse(violacoes.isEmpty());
-        assertEquals("Título é obrigatório", violacoes.iterator().next().getMessage());
-    }
-
-    
-    @Test
-    void deveFalharQuandoDataVencimentoForNula() {
-        
-        Tarefa tarefa = new Tarefa("Estudar", "Estudar para a prova", null, usuario);
-
-        
-        Set<ConstraintViolation<Tarefa>> violacoes = validador.validate(tarefa);
-        assertFalse(violacoes.isEmpty());
-        assertEquals("Data de vencimento é obrigatória", violacoes.iterator().next().getMessage());
     }
 }

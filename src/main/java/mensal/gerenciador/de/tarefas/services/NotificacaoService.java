@@ -1,50 +1,40 @@
 package mensal.gerenciador.de.tarefas.services;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import mensal.gerenciador.de.tarefas.models.Tarefa;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-
 @Service
 public class NotificacaoService {
 
-    // Método para enviar notificação sobre uma tarefa específica
-    public String enviarNotificacao(Tarefa tarefa) {
-        if (tarefa.getUsuario() == null || tarefa.getUsuario().getEmail() == null) {
-            throw new IllegalArgumentException("Usuário ou e-mail do usuário é inválido");
-        }
+    @Autowired
+    private JavaMailSender mailSender;
 
-        // Mensagem de notificação simulada
-        String mensagem = String.format("Notificação enviada para %s sobre a tarefa: %s",
-                tarefa.getUsuario().getEmail(), tarefa.getTitulo());
+    @Value("${spring.mail.username:no-reply@dominio.com}") 
+    private String fromEmail; 
 
-        System.out.println(mensagem);
-        return mensagem;
+    public void enviarNotificacaoCriacao(Tarefa tarefa) {
+        enviarEmail(tarefa.getUsuario().getEmail(), "Nova Tarefa Criada", "Sua tarefa " + tarefa.getTitulo() + " foi criada com sucesso.");
     }
 
-    // Método para analisar as tarefas e notificar sobre o tempo restante
-    public void analisarAtividades(List<Tarefa> tarefas) {
-        LocalDate hoje = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    public void enviarNotificacaoPertoDeVencer(Tarefa tarefa) {
+        enviarEmail(tarefa.getUsuario().getEmail(), "Tarefa Perto de Vencer", "Sua tarefa " + tarefa.getTitulo() + " está perto de vencer.");
+    }
 
-        for (Tarefa tarefa : tarefas) {
-            LocalDate dataVencimento = tarefa.getDataVencimento();
-            long diasRestantes = Duration.between(hoje.atStartOfDay(), dataVencimento.atStartOfDay()).toDays();
+    public void enviarNotificacaoVencida(Tarefa tarefa) {
+        enviarEmail(tarefa.getUsuario().getEmail(), "Tarefa Vencida", "Sua tarefa " + tarefa.getTitulo() + " já venceu.");
+    }
 
-            String mensagem = String.format(
-                "Usuário: %s | Tarefa: %s | Data de Vencimento: %s | Tempo Restante: %d dias",
-                tarefa.getUsuario().getNome(),
-                tarefa.getTitulo(),
-                dataVencimento.format(formatter),
-                diasRestantes
-            );
-
-            // Simulação de envio da mensagem como se fosse um e-mail
-            System.out.println(mensagem);
-        }
+    public void enviarEmail(String to, String subject, String text) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail); 
+        message.setTo(to);          
+        message.setSubject(subject); 
+        message.setText(text);      
+        mailSender.send(message);   
     }
 }
